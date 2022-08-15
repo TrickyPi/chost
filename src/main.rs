@@ -28,22 +28,16 @@ async fn main() {
 }
 
 async fn create_server(args: Cli) {
-    let Cli { port, .. } = args;
+    let Cli { port, path, .. } = args;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let make_svc = make_service_fn(|_| async move {
-        Ok::<_, Infallible>(service_fn(move |req: Request<Body>| async move {
-            let path = req.uri().path();
-            let method = req.method();
-            if method != Method::GET {
-                return Ok::<_, Infallible>(not_found());
-            }
-            println!("{}", path);
-            if let Ok(contents) = tokio::fs::read("./README.md").await {
-                let body = contents.into();
-                return Ok::<_, Infallible>(Response::new(body));
-            }
-            Ok::<_, Infallible>(not_found())
-        }))
+    let make_svc = make_service_fn(move |_| {
+        let path = path.clone();
+        async move {
+            Ok::<_, Infallible>(service_fn(move |req| {
+                let path = path.clone();
+                async { response_file_content(path, req).await }
+            }))
+        }
     });
 
     let server = Server::bind(&addr).serve(make_svc);
@@ -51,6 +45,23 @@ async fn create_server(args: Cli) {
     if let Err(e) = server.await {
         eprintln!("server error: {}", e);
     }
+}
+
+async fn response_file_content(
+    mut path: PathBuf,
+    req: Request<Body>,
+) -> Result<Response<Body>, Infallible> {
+    let req_path = req.uri().path().strip_prefix("/").unwrap();
+    path.push(req_path);
+    let method = req.method();
+    if method != Method::GET {
+        return Ok::<_, Infallible>(not_found());
+    }
+    if let Ok(contents) = tokio::fs::read(path).await {
+        let body = contents.into();
+        return Ok::<_, Infallible>(Response::new(body));
+    }
+    Ok::<_, Infallible>(not_found())
 }
 
 /// HTTP status code 404

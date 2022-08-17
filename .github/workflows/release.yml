@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  PROJECT_NAME: chost
+
+jobs:
+  build:
+    runs-on: macOS-latest
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install latest rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+          target: ${{matrix.target}}
+
+      - name: Build for mac
+        run: cargo build --release
+
+      - name: Post Build
+        run: |
+          cd target/release/
+          strip chost
+          tar czvf ../../chost-${{matrix.target}}.zip chost
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            chost-${{matrix.target}}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

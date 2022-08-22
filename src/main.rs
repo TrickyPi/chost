@@ -1,6 +1,7 @@
 use clap::Parser;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{header, Body, Method, Request, Response, Server, StatusCode};
+use hyper::http::response::Builder;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -54,30 +55,39 @@ async fn response_file_content(
     let req_path = req.uri().path().strip_prefix("/").unwrap();
     path.push(req_path);
     let method = req.method();
-
     if method != Method::GET || !path.exists() {
         return Ok::<_, Infallible>(not_found());
     }
-
     if path.is_dir() {
         path.push("index.html");
     }
+    
+    let extension = path.extension().and_then(|extension| extension.to_str());
+    let content_type = match extension {
+        Some(v)=>{
+            match v {
+                "html" => "text/html",
+                "json" => "application/json",
+                "js" => "application/javascript",
+                &_ => "text/plain",
+            }
+        },
+        None => "text/plain",
+    };
 
     if let Ok(contents) = tokio::fs::read(path).await {
         let body = contents.into();
-        return Ok::<_, Infallible>(set_cors_headers(body));
+        let builder = Response::builder();
+        return Ok::<_, Infallible>(set_cors_headers(builder).header(header::CONTENT_TYPE, content_type).body(body).unwrap());
     }
 
     Ok::<_, Infallible>(not_found())
 }
 
-fn set_cors_headers(body: Body) -> Response<Body> {
-    Response::builder()
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+fn set_cors_headers(builder:Builder) -> Builder {
+    builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .header(header::ACCESS_CONTROL_ALLOW_METHODS, "*")
         .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
-        .body(body)
-        .unwrap()
 }
 
 fn not_found() -> Response<Body> {

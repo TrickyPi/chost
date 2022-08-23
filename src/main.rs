@@ -67,8 +67,12 @@ async fn response_file_content(
         Some(v)=>{
             match v {
                 "html" => "text/html",
-                "json" => "application/json",
                 "js" => "application/javascript",
+                "css" => "text/css",
+                "json" => "application/json",
+                "png" => "image/png",
+                "jpg" => "iamge/jpg",
+                "svg" => "image/svg+xml",
                 &_ => "text/plain",
             }
         },

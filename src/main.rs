@@ -1,7 +1,8 @@
 use clap::Parser;
+use colored::*;
+use hyper::http::response::Builder;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{header, Body, Method, Request, Response, Server, StatusCode};
-use hyper::http::response::Builder;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -43,6 +44,10 @@ async fn create_server(args: Cli) {
 
     let server = Server::bind(&addr).serve(make_svc);
 
+    let mut addr_string = addr.to_string();
+    addr_string.insert_str(0, "http://");
+    println!("start server on {}", addr_string.as_str().blue());
+
     if let Err(e) = server.await {
         eprintln!("server error: {}", e);
     }
@@ -61,20 +66,18 @@ async fn response_file_content(
     if path.is_dir() {
         path.push("index.html");
     }
-    
+
     let extension = path.extension().and_then(|extension| extension.to_str());
     let content_type = match extension {
-        Some(v)=>{
-            match v {
-                "html" => "text/html",
-                "js" => "application/javascript",
-                "css" => "text/css",
-                "json" => "application/json",
-                "png" => "image/png",
-                "jpg" => "iamge/jpg",
-                "svg" => "image/svg+xml",
-                &_ => "text/plain",
-            }
+        Some(v) => match v {
+            "html" => "text/html",
+            "js" => "application/javascript",
+            "css" => "text/css",
+            "json" => "application/json",
+            "png" => "image/png",
+            "jpg" => "iamge/jpg",
+            "svg" => "image/svg+xml",
+            &_ => "text/plain",
         },
         None => "text/plain",
     };
@@ -82,14 +85,20 @@ async fn response_file_content(
     if let Ok(contents) = tokio::fs::read(path).await {
         let body = contents.into();
         let builder = Response::builder();
-        return Ok::<_, Infallible>(set_cors_headers(builder).header(header::CONTENT_TYPE, content_type).body(body).unwrap());
+        return Ok::<_, Infallible>(
+            set_cors_headers(builder)
+                .header(header::CONTENT_TYPE, content_type)
+                .body(body)
+                .unwrap(),
+        );
     }
 
     Ok::<_, Infallible>(not_found())
 }
 
-fn set_cors_headers(builder:Builder) -> Builder {
-    builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+fn set_cors_headers(builder: Builder) -> Builder {
+    builder
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .header(header::ACCESS_CONTROL_ALLOW_METHODS, "*")
         .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
 }

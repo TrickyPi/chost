@@ -34,9 +34,9 @@ jobs:
 
       - name: Compress
         run: |
-          cd target/release/
+          cd target/${{matrix.target}}/release
           strip chost
-          tar czvf ../../chost-${{matrix.target}}.zip chost
+          tar czvf ../../../chost-${{matrix.target}}.zip chost
 
       - name: Release
         uses: softprops/action-gh-release@v1

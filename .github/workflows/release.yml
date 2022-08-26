@@ -26,10 +26,13 @@ jobs:
           profile: minimal
           target: ${{matrix.target}}
 
-      - name: Build for mac
-        run: cargo build --release
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{matrix.target}}
 
-      - name: Post Build
+      - name: Compress
         run: |
           cd target/release/
           strip chost

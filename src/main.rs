@@ -67,22 +67,9 @@ async fn response_file_content(
         path.push("index.html");
     }
 
-    let extension = path.extension().and_then(|extension| extension.to_str());
-    let content_type = match extension {
-        Some(v) => match v {
-            "html" => "text/html",
-            "js" => "application/javascript",
-            "css" => "text/css",
-            "json" => "application/json",
-            "png" => "image/png",
-            "jpg" => "iamge/jpg",
-            "svg" => "image/svg+xml",
-            &_ => "text/plain",
-        },
-        None => "text/plain",
-    };
+    let content_type = get_content_type(&path);
 
-    if let Ok(contents) = tokio::fs::read(path).await {
+    if let Ok(contents) = tokio::fs::read(&path).await {
         let body = contents.into();
         let builder = Response::builder();
         return Ok::<_, Infallible>(
@@ -108,4 +95,21 @@ fn not_found() -> Response<Body> {
         .status(StatusCode::NOT_FOUND)
         .body(NOTFOUND.into())
         .unwrap()
+}
+
+fn get_content_type(path: &PathBuf) -> &str {
+    let extension = path.extension().and_then(|f| f.to_str());
+    match extension {
+        Some(v) => match v {
+            "html" => "text/html",
+            "js" => "application/javascript",
+            "css" => "text/css",
+            "json" => "application/json",
+            "png" => "image/png",
+            "jpg" => "iamge/jpg",
+            "svg" => "image/svg+xml",
+            &_ => "text/plain",
+        },
+        None => "text/plain",
+    }
 }

@@ -7,6 +7,8 @@ use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+mod ip_port;
+
 const NOTFOUND: &[u8] = b"Not Found";
 
 /// host static files
@@ -31,7 +33,18 @@ async fn main() {
 
 async fn create_server(args: Cli) {
     let Cli { port, path, .. } = args;
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+
+    let mut available_port = port;
+    if !ip_port::is_free_in_tcp(port) {
+        let start = 7878;
+        let end = 8989;
+        match ip_port::get_used_port_in_tcp(start..end) {
+            Some(port) => available_port = port,
+            None => panic!("the {} port is not free, chost try to find a free port from {} to {}, but also didn\'t find a free port, please use --port flag to specify a free port", port, start, end),
+        };
+    };
+
+    let addr = SocketAddr::from((ip_port::create_default_ipv4(), available_port));
     let make_svc = make_service_fn(move |_| {
         let path = path.clone();
         async move {

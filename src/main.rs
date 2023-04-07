@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 mod ip_port;
 
-const NOTFOUND: &[u8] = b"Not Found";
+const NOT_FOUND: &[u8] = b"Not Found";
 
 /// host static files
 #[derive(Parser, Debug)]
@@ -106,7 +106,7 @@ fn set_cors_headers(builder: Builder) -> Builder {
 fn not_found() -> Response<Body> {
     Response::builder()
         .status(StatusCode::NOT_FOUND)
-        .body(NOTFOUND.into())
+        .body(NOT_FOUND.into())
         .unwrap()
 }
 
@@ -119,7 +119,7 @@ fn get_content_type(path: &PathBuf) -> &str {
             "css" => "text/css",
             "json" => "application/json",
             "png" => "image/png",
-            "jpg" => "iamge/jpg",
+            "jpg" => "image/jpg",
             "svg" => "image/svg+xml",
             &_ => "text/plain",
         },

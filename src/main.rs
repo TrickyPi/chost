@@ -121,6 +121,7 @@ fn get_content_type(path: &PathBuf) -> &str {
             "png" => "image/png",
             "jpg" => "image/jpg",
             "svg" => "image/svg+xml",
+            "wasm" => "application/wasm",
             &_ => "text/plain",
         },
         None => "text/plain",

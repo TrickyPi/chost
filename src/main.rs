@@ -12,11 +12,11 @@ mod ip_port;
 const NOT_FOUND: &[u8] = b"Not Found";
 
 /// host static files
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 struct Cli {
     /// path to host
     #[clap(parse(from_os_str))]
-    path: PathBuf,
+    path: Option<PathBuf>,
     /// enable cors
     #[clap(short, long, default_value_t = true)]
     cors: bool,
@@ -33,6 +33,11 @@ async fn main() {
 
 async fn create_server(args: Cli) {
     let Cli { port, path, .. } = args;
+
+    let path = match path {
+        Some(path) => path,
+        None => PathBuf::from("./"),
+    };
 
     let mut available_port = port;
     if !ip_port::is_free_in_tcp(port) {

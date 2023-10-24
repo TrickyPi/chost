@@ -1,6 +1,6 @@
 [package]
 name = "chost"
-version = "0.0.7"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,4 +9,5 @@ edition = "2021"
 clap = { version = "3.0", features = ["derive"] }
 hyper = { version = "0.14.26", features = ["full"] }
 tokio = { version = "1.27.0", features = ["full"] }
+local-ip-address = "0.5.6"
 colored = "2.0.0"

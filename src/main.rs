@@ -1,15 +1,17 @@
 use clap::Parser;
-use colored::*;
-use hyper::http::response::Builder;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{header, Body, Method, Request, Response, Server, StatusCode};
+use hyper::Server;
 use std::convert::Infallible;
-use std::net::SocketAddr;
 use std::path::PathBuf;
 
-mod ip_port;
+mod addr;
+use addr::{Addr, Port};
 
-const NOT_FOUND: &[u8] = b"Not Found";
+mod response;
+use response::response_file_content;
+
+mod utils;
+use utils::get_full_addr_string;
 
 /// host static files
 #[derive(Parser)]
@@ -22,7 +24,7 @@ struct Cli {
     cors: bool,
     /// port
     #[clap(short, long, default_value_t = 7878)]
-    port: u16,
+    port: Port,
 }
 
 #[tokio::main]
@@ -39,18 +41,7 @@ async fn create_server(args: Cli) {
         None => PathBuf::from("./"),
     };
 
-    let mut available_port = port;
-    if !ip_port::is_free_in_tcp(port) {
-        let start = 7878;
-        let end = 8989;
-        match ip_port::get_used_port_in_tcp(start..end) {
-            Some(port) => available_port = port,
-            None => panic!("the {} port is not free, chost try to find a free port from {} to {}, but also didn\'t find a free port, please use --port flag to specify a free port", port, start, end),
-        };
-    };
-
-    let addr = SocketAddr::from((ip_port::create_default_ipv4(), available_port));
-    let make_svc = make_service_fn(move |_| {
+    let make_svc = make_service_fn(|_| {
         let path = path.clone();
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
@@ -60,75 +51,16 @@ async fn create_server(args: Cli) {
         }
     });
 
-    let server = Server::bind(&addr).serve(make_svc);
+    let addr = Addr::new();
+    let (local_addr, network_addr) = addr.get_address(port);
 
-    let mut addr_string = addr.to_string();
-    addr_string.insert_str(0, "http://");
-    println!("start server on {}", addr_string.as_str().blue());
+    let local_server = Server::bind(&local_addr).serve(make_svc);
+    let network_server = Server::bind(&network_addr).serve(make_svc);
 
-    if let Err(e) = server.await {
+    println!("local server on {}", get_full_addr_string(&local_addr));
+    println!("network server on {}", get_full_addr_string(&network_addr));
+
+    if let Err(e) = tokio::try_join!(local_server, network_server) {
         eprintln!("server error: {}", e);
-    }
-}
-
-async fn response_file_content(
-    mut path: PathBuf,
-    req: Request<Body>,
-) -> Result<Response<Body>, Infallible> {
-    let req_path = req.uri().path().strip_prefix("/").unwrap();
-    path.push(req_path);
-    let method = req.method();
-    if method != Method::GET || !path.exists() {
-        return Ok::<_, Infallible>(not_found());
-    }
-    if path.is_dir() {
-        path.push("index.html");
-    }
-
-    let content_type = get_content_type(&path);
-
-    if let Ok(contents) = tokio::fs::read(&path).await {
-        let body = contents.into();
-        let builder = Response::builder();
-        return Ok::<_, Infallible>(
-            set_cors_headers(builder)
-                .header(header::CONTENT_TYPE, content_type)
-                .body(body)
-                .unwrap(),
-        );
-    }
-
-    Ok::<_, Infallible>(not_found())
-}
-
-fn set_cors_headers(builder: Builder) -> Builder {
-    builder
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "*")
-        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
-}
-
-fn not_found() -> Response<Body> {
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(NOT_FOUND.into())
-        .unwrap()
-}
-
-fn get_content_type(path: &PathBuf) -> &str {
-    let extension = path.extension().and_then(|f| f.to_str());
-    match extension {
-        Some(v) => match v {
-            "html" => "text/html",
-            "js" => "application/javascript",
-            "css" => "text/css",
-            "json" => "application/json",
-            "png" => "image/png",
-            "jpg" => "image/jpg",
-            "svg" => "image/svg+xml",
-            "wasm" => "application/wasm",
-            &_ => "text/plain",
-        },
-        None => "text/plain",
     }
 }

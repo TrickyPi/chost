@@ -1,7 +1,7 @@
 use hyper::http::response::Builder;
 use hyper::{header, Body, Method, Request, Response, StatusCode};
 use std::convert::Infallible;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const NOT_FOUND: &[u8] = b"Not Found";
 
@@ -9,7 +9,7 @@ pub async fn response_file_content(
     mut path: PathBuf,
     req: Request<Body>,
 ) -> Result<Response<Body>, Infallible> {
-    let req_path = req.uri().path().strip_prefix("/").unwrap();
+    let req_path = req.uri().path().strip_prefix('/').unwrap();
     path.push(req_path);
     let method = req.method();
     if method != Method::GET || !path.exists() {
@@ -49,7 +49,7 @@ fn not_found() -> Response<Body> {
         .unwrap()
 }
 
-fn get_content_type(path: &PathBuf) -> &str {
+fn get_content_type(path: &Path) -> &str {
     let extension = path.extension().and_then(|f| f.to_str());
     match extension {
         Some(v) => match v {

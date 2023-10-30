@@ -10,10 +10,10 @@ pub struct Addr {
 
 impl Addr {
     pub fn new() -> Self {
-        return Addr {
+        Addr {
             local_ip: Ipv4Addr::new(127, 0, 0, 1),
             network_ip: local_ip().unwrap(),
-        };
+        }
     }
     pub fn is_free_port(&self, port: Port) -> Option<(SocketAddr, SocketAddr)> {
         let Addr {

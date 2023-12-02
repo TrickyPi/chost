@@ -3,6 +3,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::Server;
 use std::convert::Infallible;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 mod addr;
 use addr::{Addr, Port};
@@ -20,7 +21,7 @@ struct Cli {
     #[clap(parse(from_os_str))]
     path: Option<PathBuf>,
     /// enable cors
-    #[clap(short, long, default_value_t = true)]
+    #[clap(short, long)]
     cors: bool,
     /// port
     #[clap(short, long, default_value_t = 7878)]
@@ -34,19 +35,23 @@ async fn main() {
 }
 
 async fn create_server(args: Cli) {
-    let Cli { port, path, .. } = args;
+    let Cli { port, path, cors } = args;
 
     let path = match path {
         Some(path) => path,
         None => PathBuf::from("./"),
     };
 
+    let cors_arc = Arc::new(cors);
+
     let make_svc = make_service_fn(|_| {
         let path = path.clone();
+        let cors_arc = cors_arc.clone();
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
                 let path = path.clone();
-                async { response_file_content(path, req).await }
+                let cors_arc = cors_arc.clone();
+                async { response_file_content(path, req, cors_arc).await }
             }))
         }
     });

@@ -44,3 +44,9 @@ impl Addr {
         panic!("the {} port is not free, chost try to find a free port from {} to {}, but also didn\'t find a free port, please use --port flag to specify a free port", port, start, end)
     }
 }
+
+impl Default for Addr {
+    fn default() -> Self {
+        Self::new()
+    }
+}

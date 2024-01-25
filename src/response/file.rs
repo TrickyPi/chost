@@ -1,5 +1,5 @@
 use hyper::http::response::Builder;
-use hyper::{header, Body, Method, Request, Response, StatusCode};
+use hyper::{header, Body, Method, Response, StatusCode};
 use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -8,12 +8,9 @@ const NOT_FOUND: &[u8] = b"Not Found";
 
 pub async fn response_file_content(
     mut path: PathBuf,
-    req: Request<Body>,
     cors_arc: Arc<bool>,
+    method: Method,
 ) -> Result<Response<Body>, Infallible> {
-    let req_path = req.uri().path().strip_prefix('/').unwrap();
-    path.push(req_path);
-    let method = req.method();
     if method != Method::GET || !path.exists() {
         return Ok::<_, Infallible>(not_found());
     }

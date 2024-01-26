@@ -1,26 +1,49 @@
 use hyper::http::response::Builder;
 use hyper::{header, Body, Method, Response, StatusCode};
 use std::convert::Infallible;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 const NOT_FOUND: &[u8] = b"Not Found";
+const DEFAULT_HTML: &str = "index.html";
 
 pub async fn response_file_content(
     mut path: PathBuf,
     cors_arc: Arc<bool>,
     method: Method,
+    req_path: String,
 ) -> Result<Response<Body>, Infallible> {
-    if method != Method::GET || !path.exists() {
+    if method != Method::GET {
         return Ok::<_, Infallible>(not_found());
     }
+
+    let mut original_path = path.clone();
+
+    path.push(req_path);
+
     if path.is_dir() {
-        path.push("index.html");
+        path.push(DEFAULT_HTML);
     }
 
-    let content_type = get_content_type(&path);
+    let mut extension = path.extension().and_then(|f| f.to_str());
 
-    if let Ok(contents) = tokio::fs::read(&path).await {
+    if let Some(contents) = match tokio::fs::read(&path).await {
+        Ok(contents) => Some(contents),
+        Err(_) => {
+            if extension.is_none() {
+                original_path.push(DEFAULT_HTML);
+                match tokio::fs::read(original_path).await {
+                    Ok(contents) => {
+                        extension = Some("html");
+                        Some(contents)
+                    }
+                    Err(_) => None,
+                }
+            } else {
+                None
+            }
+        }
+    } {
         let body = contents.into();
         let mut builder = Response::builder();
         if *cors_arc {
@@ -28,7 +51,7 @@ pub async fn response_file_content(
         }
         return Ok::<_, Infallible>(
             builder
-                .header(header::CONTENT_TYPE, content_type)
+                .header(header::CONTENT_TYPE, get_content_type(extension))
                 .body(body)
                 .unwrap(),
         );
@@ -51,8 +74,7 @@ fn not_found() -> Response<Body> {
         .unwrap()
 }
 
-fn get_content_type(path: &Path) -> &str {
-    let extension = path.extension().and_then(|f| f.to_str());
+fn get_content_type(extension: Option<&str>) -> &str {
     match extension {
         Some(v) => match v {
             "html" => "text/html",

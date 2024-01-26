@@ -10,7 +10,7 @@ use chost::addr::{Addr, Port};
 use chost::response::{file::response_file_content, proxy::proxy_response};
 use chost::utils::get_full_addr_string;
 
-/// host static files
+/// Not only can it host static files
 #[derive(Parser)]
 struct Cli {
     /// path to host
@@ -22,6 +22,7 @@ struct Cli {
     /// port
     #[clap(short, long, default_value_t = 7878)]
     port: Port,
+    /// forwarding request to other service, the format is "${api}|${origin} ${api}|${origin}"
     #[clap(long, value_delimiter = ' ')]
     proxy: Option<Vec<String>>,
 }
@@ -79,7 +80,7 @@ async fn create_server(args: Cli) {
                 let req_path = req.uri().path().strip_prefix('/').unwrap().to_owned();
                 let method = req.method().clone();
 
-                let mut path = path.clone();
+                let path = path.clone();
                 let cors_arc = cors_arc.clone();
                 let proxies_arc = proxies_arc.clone();
                 let client = client.clone();
@@ -88,8 +89,7 @@ async fn create_server(args: Cli) {
                     if let Some(resp) = proxy_response(client, req, &proxies_arc).await {
                         Ok::<_, Infallible>(resp)
                     } else {
-                        path.push(req_path);
-                        response_file_content(path, cors_arc, method).await
+                        response_file_content(path, cors_arc, method, req_path).await
                     }
                 }
             }))

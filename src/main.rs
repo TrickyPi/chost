@@ -1,6 +1,7 @@
 use clap::Parser;
+use hyper::header::HeaderValue;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Client, Server};
+use hyper::{header, Client, Server};
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,11 +87,26 @@ async fn create_server(args: Cli) {
                 let client = client.clone();
 
                 async move {
-                    if let Some(resp) = proxy_response(client, req, &proxies_arc).await {
-                        Ok::<_, Infallible>(resp)
-                    } else {
-                        response_file_content(path, cors_arc, method, req_path).await
+                    let mut resp =
+                        if let Some(resp) = proxy_response(client, req, &proxies_arc).await {
+                            resp
+                        } else {
+                            response_file_content(path, method, req_path).await
+                        };
+                    if *cors_arc {
+                        let headers = resp.headers_mut();
+                        let not_limited_value = HeaderValue::from_static("*");
+                        headers.insert(
+                            header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                            not_limited_value.clone(),
+                        );
+                        headers.insert(
+                            header::ACCESS_CONTROL_ALLOW_METHODS,
+                            not_limited_value.clone(),
+                        );
+                        headers.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, not_limited_value);
                     }
+                    Ok::<_, Infallible>(resp)
                 }
             }))
         }

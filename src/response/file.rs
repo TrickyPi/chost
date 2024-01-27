@@ -1,20 +1,16 @@
-use hyper::http::response::Builder;
 use hyper::{header, Body, Method, Response, StatusCode};
-use std::convert::Infallible;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 const NOT_FOUND: &[u8] = b"Not Found";
 const DEFAULT_HTML: &str = "index.html";
 
 pub async fn response_file_content(
     mut path: PathBuf,
-    cors_arc: Arc<bool>,
     method: Method,
     req_path: String,
-) -> Result<Response<Body>, Infallible> {
+) -> Response<Body> {
     if method != Method::GET {
-        return Ok::<_, Infallible>(not_found());
+        return not_found();
     }
 
     let mut original_path = path.clone();
@@ -45,26 +41,13 @@ pub async fn response_file_content(
         }
     } {
         let body = contents.into();
-        let mut builder = Response::builder();
-        if *cors_arc {
-            builder = set_cors_headers(builder)
-        }
-        return Ok::<_, Infallible>(
-            builder
-                .header(header::CONTENT_TYPE, get_content_type(extension))
-                .body(body)
-                .unwrap(),
-        );
+        let builder = Response::builder();
+        return builder
+            .header(header::CONTENT_TYPE, get_content_type(extension))
+            .body(body)
+            .unwrap();
     }
-
-    Ok::<_, Infallible>(not_found())
-}
-
-fn set_cors_headers(builder: Builder) -> Builder {
-    builder
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "*")
-        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+    not_found()
 }
 
 fn not_found() -> Response<Body> {

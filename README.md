@@ -1,8 +1,8 @@
-# chost
+# Chost
 
 a small tool to host local static files.
 
-## install
+## Install
 
 Shell(Mac, Linux)
 
@@ -10,7 +10,7 @@ Shell(Mac, Linux)
 curl -fsSL https://raw.githubusercontent.com/TrickyPi/chost/main/install/install.sh | sh
 ```
 
-## usage
+## Usage
 
 ```sh
 chost [OPTIONS] [PATH]

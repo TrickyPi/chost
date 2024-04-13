@@ -9,6 +9,10 @@ pub async fn response_file_content(
     method: Method,
     req_path: String,
 ) -> Response<Body> {
+    if method == Method::OPTIONS {
+        return response_with_no_body(StatusCode::NO_CONTENT);
+    }
+
     if method != Method::GET {
         return not_found();
     }
@@ -48,6 +52,13 @@ pub async fn response_file_content(
             .unwrap();
     }
     not_found()
+}
+
+fn response_with_no_body(status: StatusCode) -> Response<Body> {
+    Response::builder()
+        .status(status)
+        .body(Body::empty())
+        .unwrap()
 }
 
 fn not_found() -> Response<Body> {

@@ -1,10 +1,13 @@
-use hyper::{client::HttpConnector, Body, Client, Request, Response, StatusCode};
+use http_body_util::{combinators::BoxBody, BodyExt};
+use hyper::{body::Bytes, client::conn, Request, Response};
+
+use hyper_util::rt::TokioIo;
+use tokio::net::TcpStream;
 
 pub async fn proxy_response(
-    client: Client<HttpConnector>,
-    req: Request<Body>,
+    req: Request<hyper::body::Incoming>,
     proxies: &Option<Vec<(String, String)>>,
-) -> Option<Response<Body>> {
+) -> Option<Response<BoxBody<Bytes, hyper::Error>>> {
     let uri = req.uri().path();
     if let Some(proxies) = proxies {
         for (api, origin) in proxies {
@@ -15,15 +18,34 @@ pub async fn proxy_response(
                     .uri(origin.strip_suffix('/').unwrap_or(origin).to_owned() + uri)
                     .body(req.into_body())
                     .unwrap();
-
                 *request_builder.headers_mut() = headers;
-                let response = client.request(request_builder).await.unwrap();
-                let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-                let body = String::from_utf8(body.to_vec()).unwrap();
 
-                let mut resp = Response::new(Body::from(body));
-                *resp.status_mut() = StatusCode::OK;
-                return Some(resp);
+                let stream = TcpStream::connect(
+                    origin
+                        .strip_prefix("http://")
+                        .or_else(|| origin.strip_prefix("https://"))
+                        .unwrap_or(origin),
+                )
+                .await
+                .unwrap();
+
+                let io = TokioIo::new(stream);
+                let (mut sender, conn) = conn::http1::handshake(io).await.unwrap();
+
+                tokio::task::spawn(async move {
+                    conn.await.unwrap();
+                });
+
+                let response = sender.send_request(request_builder).await.unwrap();
+                let body_bytes = response
+                    .into_body()
+                    .collect()
+                    .await
+                    .unwrap()
+                    .map_err(|never| match never {})
+                    .boxed();
+
+                return Some(Response::new(body_bytes));
             }
         }
     }

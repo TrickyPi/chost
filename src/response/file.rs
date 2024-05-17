@@ -1,4 +1,5 @@
-use hyper::{header, Body, Method, Response, StatusCode};
+use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
+use hyper::{body::Bytes, header, Method, Response, StatusCode};
 use std::path::PathBuf;
 
 const NOT_FOUND: &[u8] = b"Not Found";
@@ -8,7 +9,7 @@ pub async fn response_file_content(
     mut path: PathBuf,
     method: Method,
     req_path: String,
-) -> Response<Body> {
+) -> Response<BoxBody<Bytes, hyper::Error>> {
     if method == Method::OPTIONS {
         return response_with_no_body(StatusCode::NO_CONTENT);
     }
@@ -44,27 +45,23 @@ pub async fn response_file_content(
             }
         }
     } {
-        let body = contents.into();
         let builder = Response::builder();
         return builder
             .header(header::CONTENT_TYPE, get_content_type(extension))
-            .body(body)
+            .body(full(contents))
             .unwrap();
     }
     not_found()
 }
 
-fn response_with_no_body(status: StatusCode) -> Response<Body> {
-    Response::builder()
-        .status(status)
-        .body(Body::empty())
-        .unwrap()
+fn response_with_no_body(status: StatusCode) -> Response<BoxBody<Bytes, hyper::Error>> {
+    Response::builder().status(status).body(empty()).unwrap()
 }
 
-fn not_found() -> Response<Body> {
+fn not_found() -> Response<BoxBody<Bytes, hyper::Error>> {
     Response::builder()
         .status(StatusCode::NOT_FOUND)
-        .body(NOT_FOUND.into())
+        .body(full(NOT_FOUND))
         .unwrap()
 }
 
@@ -83,4 +80,15 @@ fn get_content_type(extension: Option<&str>) -> &str {
         },
         None => "text/plain",
     }
+}
+
+fn empty() -> BoxBody<Bytes, hyper::Error> {
+    Empty::<Bytes>::new()
+        .map_err(|never| match never {})
+        .boxed()
+}
+fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, hyper::Error> {
+    Full::new(chunk.into())
+        .map_err(|never| match never {})
+        .boxed()
 }

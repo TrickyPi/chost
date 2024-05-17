@@ -15,19 +15,20 @@ impl Addr {
             network_ip: local_ip().unwrap(),
         }
     }
-    pub fn is_free_port(&self, port: Port) -> Option<(SocketAddr, SocketAddr)> {
+    pub fn is_free_port(&self, port: Port) -> Option<(SocketAddr, SocketAddr, String)> {
         let Addr {
             local_ip,
             network_ip,
         } = self;
         let local_addr = SocketAddr::new(IpAddr::V4(*local_ip), port);
         let network_addr = SocketAddr::new(*network_ip, port);
-        if TcpListener::bind(local_addr).is_ok() | TcpListener::bind(network_addr).is_ok() {
-            return Some((local_addr, network_addr));
+        let bind_addr = format!("[::]:{}", port);
+        if TcpListener::bind(&bind_addr).is_ok() {
+            return Some((local_addr, network_addr, bind_addr));
         }
         None
     }
-    pub fn get_address(&self, port: Port) -> (SocketAddr, SocketAddr) {
+    pub fn get_address(&self, port: Port) -> (SocketAddr, SocketAddr, String) {
         if let Some(addr) = self.is_free_port(port) {
             return addr;
         }

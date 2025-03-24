@@ -15,6 +15,7 @@ use chost::utils::get_full_addr_string;
 
 /// Not only can it host static files
 #[derive(Parser)]
+#[command(version)]
 struct Cli {
     /// path to host
     path: Option<PathBuf>,

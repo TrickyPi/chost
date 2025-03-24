@@ -14,7 +14,7 @@ pub async fn response_file_content(
         return response_with_no_body(StatusCode::NO_CONTENT);
     }
 
-    if method != Method::GET {
+    if method != Method::GET && method != Method::HEAD {
         return not_found();
     }
 
@@ -45,11 +45,13 @@ pub async fn response_file_content(
             }
         }
     } {
-        let builder = Response::builder();
-        return builder
-            .header(header::CONTENT_TYPE, get_content_type(extension))
-            .body(full(contents))
-            .unwrap();
+        let mut builder = Response::builder();
+        builder = builder.header(header::CONTENT_TYPE, get_content_type(extension));
+        if method == Method::HEAD {
+            return builder.body(empty()).unwrap();
+        } else {
+            return builder.body(full(contents)).unwrap();
+        }
     }
     not_found()
 }
@@ -76,6 +78,8 @@ fn get_content_type(extension: Option<&str>) -> &str {
             "jpg" => "image/jpg",
             "svg" => "image/svg+xml",
             "wasm" => "application/wasm",
+            "pdf" => "application/pdf",
+            "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             &_ => "text/plain",
         },
         None => "text/plain",
